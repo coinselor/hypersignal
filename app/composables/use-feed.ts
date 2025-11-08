@@ -56,6 +56,40 @@ export function useFeed() {
     };
   }
 
+  function getReplaceableKey(event: NostrEvent) {
+    if (event.kind === SIGNAL_KIND || event.kind === ACK_KIND) {
+      const discriminator = findTagValue(event, "d") || "";
+      return `${event.kind}:${event.pubkey}:${discriminator}`;
+    }
+
+    return null;
+  }
+
+  function upsertProcessedEvent(target: ProcessedEvent[], processed: ProcessedEvent) {
+    if (target.some(item => item.id === processed.id))
+      return false;
+
+    const replaceableKey = getReplaceableKey(processed.rawEvent);
+
+    if (replaceableKey) {
+      const existingIndex = target.findIndex(item => getReplaceableKey(item.rawEvent) === replaceableKey);
+
+      if (existingIndex !== -1) {
+        const existing = target[existingIndex]!;
+        const existingTimestamp = existing.rawEvent.created_at ?? 0;
+        const newTimestamp = processed.rawEvent.created_at ?? 0;
+
+        if (existingTimestamp >= newTimestamp)
+          return false;
+
+        target.splice(existingIndex, 1);
+      }
+    }
+
+    target.unshift(processed);
+    return true;
+  }
+
   async function fetchEvents(controller: AbortController) {
     const filters: NostrFilter[] = [
       { kinds: [SIGNAL_KIND, ACK_KIND], limit: 50 },
@@ -68,10 +102,10 @@ export function useFeed() {
           const processed = processEvent(event);
 
           if (processed.action === "ack") {
-            acks.value.unshift(processed);
+            upsertProcessedEvent(acks.value, processed);
           }
           else {
-            signals.value.unshift(processed);
+            upsertProcessedEvent(signals.value, processed);
           }
 
           if (isBootstrapping.value)
