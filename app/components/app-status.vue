@@ -6,10 +6,8 @@ import type { Profile } from "../composables/use-profiles";
 const emit = defineEmits(["openSignalCreator"]);
 const { getAuthorizedPubkeys } = useAuthorization();
 const { fetchProfiles, getProfile } = useProfiles();
-const { signals } = useFeed();
-
-// Check if there are any active signals
-const hasActiveSignals = computed(() => signals.value.length > 0);
+const { activePlan } = useSignalPlan();
+const { isBootstrapping } = useFeed();
 
 // Get authorized developer pubkeys from config
 const authorizedPubkeys = getAuthorizedPubkeys();
@@ -29,25 +27,9 @@ const devProfiles = computed(() => {
   return profileMap;
 });
 
-const signedPubkeySet = computed(() => {
-  const signed = new Set<string>();
-
-  for (const signal of signals.value) {
-    if (authorizedPubkeys.includes(signal.pubkey)) {
-      signed.add(signal.pubkey);
-    }
-  }
-
-  return signed;
-});
-
-const signedDevs = computed(() => {
-  return authorizedPubkeys.filter(pk => signedPubkeySet.value.has(pk));
-});
-
-const pendingDevs = computed(() => {
-  return authorizedPubkeys.filter(pk => !signedPubkeySet.value.has(pk));
-});
+// Get signed and pending developers from the active plan
+const signedDevs = computed(() => activePlan.value.signedPubkeys);
+const pendingDevs = computed(() => activePlan.value.pendingPubkeys);
 
 const { user } = useCurrentUser();
 const { isAuthorized: checkAuthorized } = useAuthorization();
@@ -56,6 +38,37 @@ const { isAuthorized: checkAuthorized } = useAuthorization();
 const canCreateSignal = computed(() => {
   return Boolean(user.value && checkAuthorized(user.value.pubkey));
 });
+
+// Helper to format action into readable title
+function getActionTitle(action: string | null): string {
+  if (!action)
+    return "Hyper Ready.";
+
+  switch (action.toLowerCase()) {
+    case "upgrade":
+      return "Upgrade Required";
+    case "reboot":
+      return "Reboot Required";
+    default:
+      return `${action.charAt(0).toUpperCase()}${action.slice(1)} Required`;
+  }
+}
+
+// Helper to get triggered-by developer name
+function getTriggeredByName(pubkey: string): string {
+  const profile = devProfiles.value[pubkey];
+  return profile?.display_name || profile?.name || `...${pubkey.slice(-4)}`;
+}
+
+// Helper to format Unix timestamp
+function formatTimestamp(timestamp: number): string {
+  const date = new Date(timestamp * 1000);
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 </script>
 
 <template>
@@ -64,20 +77,27 @@ const canCreateSignal = computed(() => {
     class="flex flex-col items-center text-center space-y-2"
     :transition="{ layout: { duration: 0.6, ease: 'easeOut' } }"
   >
-    <UBadge v-if="hasActiveSignals" color="neutral" variant="soft">
-      Action
-    </UBadge>
+    <template v-if="isBootstrapping">
+      <USkeleton class="h-6 w-20 rounded-full" />
+      <USkeleton class="h-9 sm:h-10 w-64 sm:w-80" />
+      <USkeleton class="h-4 w-40 mt-2" />
+    </template>
+    <template v-else>
+      <UBadge v-if="activePlan.hasActivePlan" color="neutral" variant="soft">
+        Action
+      </UBadge>
 
-    <h1 class="font-mono text-3xl sm:text-4xl font-semibold text-primary">
-      {{ hasActiveSignals ? 'Upgrade Required' : 'Hyper Ready.' }}
-    </h1>
+      <h1 class="font-mono text-3xl sm:text-4xl font-semibold text-primary">
+        {{ activePlan.hasActivePlan ? getActionTitle(activePlan.action) : 'Hyper Ready.' }}
+      </h1>
 
-    <p v-if="hasActiveSignals" class="text-sm mt-2">
-      Triggered by <span class="text-muted">Username</span> on March 25th, 2025
-    </p>
-    <p v-else class="text-sm mt-2">
-      Monitoring for signals.
-    </p>
+      <p v-if="activePlan.hasActivePlan && activePlan.triggeredBy" class="text-sm mt-2">
+        Triggered by <span class="text-muted">{{ getTriggeredByName(activePlan.triggeredBy.pubkey) }}</span> on {{ formatTimestamp(activePlan.triggeredBy.timestamp) }}
+      </p>
+      <p v-else class="text-sm mt-2">
+        Monitoring for signals.
+      </p>
+    </template>
   </motion.div>
 
   <!-- Send HyperSignal Button with Halo Effect -->
@@ -119,7 +139,12 @@ const canCreateSignal = computed(() => {
         class="text-3xl sm:text-4xl mt-4 font-mono font-semibold"
         :transition="{ layout: { duration: 0.65, ease: [0.22, 1, 0.36, 1] } }"
       >
-        {{ signedDevs.length }} / {{ authorizedPubkeys.length }}
+        <template v-if="isBootstrapping">
+          <USkeleton class="h-8 w-28" />
+        </template>
+        <template v-else>
+          {{ signedDevs.length }} / {{ authorizedPubkeys.length }}
+        </template>
       </motion.div>
     </motion.div>
 
@@ -129,8 +154,13 @@ const canCreateSignal = computed(() => {
         <h3 class="text-sm mb-4 text-muted">
           Signed
         </h3>
-        <div v-if="loadingProfiles" class="flex items-center justify-center py-4">
-          <UIcon name="i-lucide-loader-circle" class="animate-spin text-2xl text-gray-400" />
+        <div v-if="loadingProfiles || isBootstrapping" class="w-full">
+          <div class="grid sm:hidden w-full grid-cols-3 grid-rows-2 gap-3 place-items-center overflow-visible">
+            <USkeleton v-for="n in 6" :key="n" class="rounded-full h-16 w-16" />
+          </div>
+          <div class="hidden sm:grid w-full grid-cols-3 gap-2 place-items-center md:justify-items-end">
+            <USkeleton v-for="n in 6" :key="n" class="rounded-full h-20 w-20 md:!w-20 md:!h-20" />
+          </div>
         </div>
         <div v-else class="w-full">
           <!-- Mobile: 2 rows of 4, larger avatars -->
@@ -153,8 +183,13 @@ const canCreateSignal = computed(() => {
         <h3 class="text-sm mb-4 text-muted">
           Pending
         </h3>
-        <div v-if="loadingProfiles" class="flex items-center justify-center py-4">
-          <UIcon name="i-lucide-loader-circle" class="animate-spin text-2xl text-gray-400" />
+        <div v-if="loadingProfiles || isBootstrapping" class="w-full">
+          <div class="grid sm:hidden w-full grid-cols-3 grid-rows-2 gap-3 place-items-center overflow-visible">
+            <USkeleton v-for="n in 6" :key="n" class="rounded-full h-16 w-16" />
+          </div>
+          <div class="hidden sm:grid w-full grid-cols-3 gap-2 place-items-center md:justify-items-start">
+            <USkeleton v-for="n in 6" :key="n" class="rounded-full h-20 w-20 md:!w-20 md:!h-20" />
+          </div>
         </div>
         <div v-else class="w-full">
           <!-- Mobile: 2 rows of 4, larger avatars -->

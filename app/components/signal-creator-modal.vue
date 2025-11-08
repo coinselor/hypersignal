@@ -208,7 +208,7 @@ async function signAndPublish() {
     const signedEvent = await user.value.signer.signEvent(plainEvent);
 
     // Publish to special relays
-    const publishResult = await pool.event(signedEvent);
+    const _publishResult = await pool.event(signedEvent);
 
     toast.add({
       title: "HyperSignal Sent!",

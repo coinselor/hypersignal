@@ -6,7 +6,7 @@ type CodePreviewProps = {
     code?: string;
   };
   label?: string;
-}
+};
 
 const props = withDefaults(defineProps<CodePreviewProps>(), {
   ui: () => ({}),
@@ -30,12 +30,12 @@ const rootClass = computed(() => {
 
 const previewClass = computed(() => {
   let base = themeConfig.value.slots?.preview || "flex justify-center border border-muted relative p-4 rounded-md";
-  
+
   // Apply variant if code slot exists
   if (hasCodeSlot.value && themeConfig.value.variants?.code?.true?.preview) {
     base = `${base} ${themeConfig.value.variants.code.true.preview}`;
   }
-  
+
   return props.ui.preview ? `${base} ${props.ui.preview}` : base;
 });
 

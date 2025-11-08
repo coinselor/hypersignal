@@ -36,7 +36,14 @@ const actionLabel = computed(() => {
   return action.charAt(0).toUpperCase() + action.slice(1);
 });
 
-const accentBadgeColor = computed(() => props.signal.action === "upgrade" ? "primary" : "warning");
+const accentBadgeColor = computed(() => {
+  const action = props.signal.action;
+  if (action === "upgrade")
+    return "primary";
+  if (action === "reboot")
+    return "info";
+  return "warning";
+});
 
 const _accentGradient = computed(() => props.signal.action === "upgrade"
   ? "from-primary-400/80 via-primary-500 to-primary-400/80"
@@ -62,27 +69,6 @@ const npubLabel = computed(() => {
   }
 });
 
-const metaItems = computed(() => {
-  const items = [] as { label: string; icon: string; value: string }[];
-
-  if (props.signal.version) {
-    items.push({ label: "Version", icon: "i-heroicons-cog-6-tooth", value: `${props.signal.version}` });
-  }
-
-  if (props.signal.network) {
-    items.push({ label: "Network", icon: "i-heroicons-globe-alt", value: props.signal.network });
-  }
-
-  if (props.signal.status) {
-    items.push({
-      label: "Status",
-      icon: props.signal.status === "success" ? "i-heroicons-check-circle" : "i-heroicons-exclamation-triangle",
-      value: props.signal.status,
-    });
-  }
-
-  return items;
-});
 
 onMounted(() => {
   void fetchProfile(props.signal.pubkey);
@@ -148,15 +134,6 @@ watch(() => props.signal.pubkey, (pubkey) => {
         No message provided.
       </p>
 
-      <div v-if="metaItems.length" class="flex flex-wrap gap-2 pt-2">
-        <div
-          v-for="item in metaItems"
-          :key="item.label"
-          class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100/80 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800/80 dark:text-zinc-300"
-        >
-          <span>{{ item.value }}</span>
-        </div>
-      </div>
     </div>
   </UCard>
 </template>

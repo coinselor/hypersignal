@@ -4,8 +4,6 @@ import { onMounted, onUnmounted } from "vue";
 
 import type { ProcessedEvent } from "../../types";
 
-import usersData from "../../data/users.json";
-
 const SIGNAL_KIND = 33321;
 const ACK_KIND = 3333;
 
@@ -17,11 +15,22 @@ export function useFeed() {
   const isInitialized = useState<boolean>("feed-initialized", () => false);
   const subscriberCount = useState<number>("feed-subscriber-count", () => 0);
   const controllerState = useState<AbortController | null>("feed-controller", () => null);
-  const users = usersData as Record<string, { name: string; picture: string }>;
+  const isBootstrapping = useState<boolean>("feed-bootstrapping", () => true);
 
   function findTagValue(event: NostrEvent, tagName: string) {
     const tag = event.tags.find(t => t[0] === tagName);
     return tag ? tag[1] : undefined;
+  }
+
+  function getFallbackAuthor(pubkey: string) {
+    if (!pubkey)
+      return { name: "Unknown", picture: "" };
+
+    const trailing = pubkey.slice(-6) || pubkey;
+    return {
+      name: `...${trailing}`,
+      picture: "",
+    };
   }
 
   function processEvent(event: NostrEvent): ProcessedEvent {
@@ -41,7 +50,7 @@ export function useFeed() {
       action,
       network,
       version,
-      author: users[pubkey] || { name: "Unknown", picture: "" },
+      author: getFallbackAuthor(pubkey),
       content: event.content,
       rawEvent: event,
     };
@@ -64,6 +73,13 @@ export function useFeed() {
           else {
             signals.value.unshift(processed);
           }
+
+          if (isBootstrapping.value)
+            isBootstrapping.value = false;
+        }
+        else if (msg[0] === "EOSE") {
+          if (isBootstrapping.value)
+            isBootstrapping.value = false;
         }
       }
     }
@@ -85,6 +101,11 @@ export function useFeed() {
       controllerState.value = controller;
       isInitialized.value = true;
       fetchEvents(controller);
+
+      setTimeout(() => {
+        if (isBootstrapping.value)
+          isBootstrapping.value = false;
+      }, 1200);
     }
 
     onUnmounted(() => {
@@ -101,5 +122,6 @@ export function useFeed() {
   return {
     signals,
     acks,
+    isBootstrapping,
   };
 }
