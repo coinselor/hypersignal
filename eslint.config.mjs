@@ -14,6 +14,9 @@ export default withNuxt(
       semi: true,
       quotes: "double",
     },
+    ignores: [
+      "openspec/**",
+    ],
   }, {
     rules: {
       "ts/no-redeclare": "off",
@@ -27,7 +30,7 @@ export default withNuxt(
       }],
       "unicorn/filename-case": ["error", {
         case: "kebabCase",
-        ignore: ["README.md"],
+        ignore: ["README.md", "AGENTS.md", "CLAUDE.md"],
       }],
     },
   }),

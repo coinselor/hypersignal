@@ -9,6 +9,9 @@ dist
 # Node dependencies
 node_modules
 
+# OpenSpec
+openspec/
+
 # Logs
 logs
 *.log
@@ -17,6 +20,11 @@ logs
 .DS_Store
 .fleet
 .idea
+.windsurf
+.claude
+.opencode
+AGENTS.md
+CLAUDE.md
 
 # Local env files
 .env
