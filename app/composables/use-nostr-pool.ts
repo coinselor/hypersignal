@@ -12,6 +12,7 @@ let publicRelays: string[] = [];
 let specialRelays: string[] = [];
 let userRelays: Ref<string[]>;
 let cachedUser: ComputedRef<NUser | undefined> | null = null;
+let relayAuthState: Ref<Record<string, { pubkey: string; authedAt: number }>>;
 
 // Relay connection status tracking
 export type RelayStatus = {
@@ -55,6 +56,13 @@ export function useNostrPool() {
   if (!relayStatusMap) {
     relayStatusMap = useState<Record<string, RelayStatus>>(
       "nostr-relay-status",
+      () => ({}),
+    );
+  }
+
+  if (!relayAuthState) {
+    relayAuthState = useState<Record<string, { pubkey: string; authedAt: number }>>(
+      "nostr-relay-auth-state",
       () => ({}),
     );
   }
@@ -109,6 +117,12 @@ export function useNostrPool() {
                   };
                   const plainEvent = JSON.parse(JSON.stringify(authEvent));
                   const signedAuth = await activeUser.signer.signEvent(plainEvent);
+
+                  relayAuthState.value = {
+                    ...relayAuthState.value,
+                    [url]: { pubkey: activeUser.pubkey, authedAt: Date.now() },
+                  };
+
                   return signedAuth;
                 })().finally(() => {
                   authCache.delete(cacheKey);
@@ -196,6 +210,7 @@ type EnsureAuthOptions = {
   onInit?: (urls: string[]) => void;
   timeoutMs?: number;
   signal?: AbortSignal;
+  force?: boolean;
 };
 
 /**
@@ -203,7 +218,14 @@ type EnsureAuthOptions = {
  * This rebuilds relay instances with an auth handler if they were opened before login.
  */
 export async function ensureAuthForSpecialRelays(options: EnsureAuthOptions = {}) {
-  const { onStepStart, onStepComplete, onInit, timeoutMs = 8000, signal } = options;
+  const {
+    onStepStart,
+    onStepComplete,
+    onInit,
+    timeoutMs = 8000,
+    signal,
+    force = false,
+  } = options;
 
   if (!pool) {
     // Initialize pool if not already
@@ -267,6 +289,14 @@ export async function ensureAuthForSpecialRelays(options: EnsureAuthOptions = {}
 
     onStepStart?.(i, url);
 
+    const authEntry = relayAuthState.value[url];
+    const isAlreadyAuthed = !force && authEntry?.pubkey === activeUser.pubkey;
+
+    if (isAlreadyAuthed) {
+      onStepComplete?.(i, url);
+      continue;
+    }
+
     const relayMap = getPoolRelayMap();
     const existing = relayMap.get(url) as NRelay1 | undefined;
     if (existing) {
@@ -286,6 +316,11 @@ export async function ensureAuthForSpecialRelays(options: EnsureAuthOptions = {}
         relay.query([{ kinds: [1], limit: 1 }]),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error("auth-timeout")), timeoutMs)),
       ]);
+
+      relayAuthState.value = {
+        ...relayAuthState.value,
+        [url]: { pubkey: activeUser.pubkey, authedAt: Date.now() },
+      };
     }
     catch {
       // Ignore; goal is to trigger AUTH flow, not to fetch data
