@@ -25,7 +25,7 @@ export default defineNuxtConfig({
       ],
       // Inactivity timeout in seconds - after this period without fresh supporting signals,
       // the system will revert to "Hyper Ready" state
-      signalInactivityTimeoutSeconds: 3600, // 1 hour default
+      signalInactivityTimeoutSeconds: 60 * 60 * 24 * 7, // 1 week
     },
   },
   devtools: { enabled: true },

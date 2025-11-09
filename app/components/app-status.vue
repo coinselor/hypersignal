@@ -118,6 +118,7 @@ function formatTimestamp(timestamp: number): string {
   </AnimatePresence>
 
   <motion.section
+    v-if="activePlan.hasActivePlan"
     layout
     class="w-full max-w mt-10"
     :transition="{ layout: { duration: 0.75, ease: [0.22, 1, 0.36, 1] } }"

@@ -12,6 +12,7 @@ const items = [{
 }];
 
 const { signals, acks, isBootstrapping } = useFeed();
+const { activePlan } = useSignalPlan();
 
 const currentDate = computed(() => {
   return new Date().toLocaleDateString("en-US", {
@@ -43,14 +44,15 @@ watch([isDetailModalOpen, isRawModalOpen], ([isDetailsOpen, isRawOpen]) => {
 
 <template>
   <div v-bind="$attrs">
-    <UTabs
-      :items="items"
-      :ui="{
-        list: 'relative flex p-1 group max-w-xl mx-auto',
-      }"
-    >
-      <template #signals>
-        <div v-if="isBootstrapping" class="space-y-4 mt-4">
+    <template v-if="activePlan.hasActivePlan">
+      <UTabs
+        :items="items"
+        :ui="{
+          list: 'relative flex p-1 group max-w-xl mx-auto',
+        }"
+      >
+        <template #signals>
+          <div v-if="isBootstrapping" class="space-y-4 mt-4">
           <UCard
             v-for="n in 3"
             :key="`sig-skel-${n}`"
@@ -91,13 +93,13 @@ watch([isDetailModalOpen, isRawModalOpen], ([isDetailsOpen, isRawOpen]) => {
             Awaiting signals...
           </p>
           <p class="text-sm text-stone-500 dark:text-stone-400">
-            No signals received as of {{ currentDate }}
-          </p>
-        </div>
-      </template>
+              No signals received as of {{ currentDate }}
+            </p>
+          </div>
+        </template>
 
-      <template #acks>
-        <div v-if="isBootstrapping" class="space-y-4 mt-4">
+        <template #acks>
+          <div v-if="isBootstrapping" class="space-y-4 mt-4">
           <UCard
             v-for="n in 3"
             :key="`ack-skel-${n}`"
@@ -137,22 +139,23 @@ watch([isDetailModalOpen, isRawModalOpen], ([isDetailsOpen, isRawOpen]) => {
             Awaiting acknowledgments...
           </p>
           <p class="text-sm text-stone-500 dark:text-stone-400">
-            No ACKs received as of {{ currentDate }}
-          </p>
-        </div>
-      </template>
-    </UTabs>
+              No ACKs received as of {{ currentDate }}
+            </p>
+          </div>
+        </template>
+      </UTabs>
 
-    <!-- Modals -->
-    <AppFeedDetailModal
-      :open="isDetailModalOpen"
-      :signal="selectedSignal"
-      @update:open="isDetailModalOpen = $event"
-    />
+      <!-- Modals -->
+      <AppFeedDetailModal
+        :open="isDetailModalOpen"
+        :signal="selectedSignal"
+        @update:open="isDetailModalOpen = $event"
+      />
 
-    <AppFeedRawModal
-      v-model="isRawModalOpen"
-      :signal="selectedSignal"
-    />
+      <AppFeedRawModal
+        v-model="isRawModalOpen"
+        :signal="selectedSignal"
+      />
+    </template>
   </div>
 </template>
