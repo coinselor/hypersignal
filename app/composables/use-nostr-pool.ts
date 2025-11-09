@@ -44,6 +44,13 @@ function getAllSpecialRelays(): string[] {
   return [...new Set([...specialRelays, ...(userRelays?.value || [])])];
 }
 
+function getPoolRelayMap(): Map<string, NRelay1> {
+  if (!pool) {
+    throw new Error("Nostr pool is not initialized");
+  }
+  return (pool as unknown as { relays: Map<string, NRelay1> }).relays;
+}
+
 export function useNostrPool() {
   if (!relayStatusMap) {
     relayStatusMap = useState<Record<string, RelayStatus>>(
@@ -183,6 +190,111 @@ export function useNostrPool() {
   return pool;
 }
 
+type EnsureAuthOptions = {
+  onStepStart?: (index: number, url: string) => void;
+  onStepComplete?: (index: number, url: string) => void;
+  onInit?: (urls: string[]) => void;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+};
+
+/**
+ * Ensure NIP-42 authentication for all special relays, sequentially.
+ * This rebuilds relay instances with an auth handler if they were opened before login.
+ */
+export async function ensureAuthForSpecialRelays(options: EnsureAuthOptions = {}) {
+  const { onStepStart, onStepComplete, onInit, timeoutMs = 8000, signal } = options;
+
+  if (!pool) {
+    // Initialize pool if not already
+    useNostrPool();
+  }
+
+  const urls = getAllSpecialRelays();
+  if (urls.length === 0)
+    return;
+
+  if (!cachedUser) {
+    const { user } = useCurrentUser();
+    cachedUser = user;
+  }
+
+  const activeUser = cachedUser?.value;
+  if (!activeUser?.signer) {
+    throw new Error("Authentication requires an active signer");
+  }
+
+  function buildAuthOptions(url: string) {
+    const authCache = new Map<string, Promise<NostrEvent>>();
+    return {
+      auth: async (challenge: string) => {
+        const u = activeUser!;
+        const cacheKey = `${u.pubkey}:${url}:${challenge}`;
+        if (!authCache.has(cacheKey)) {
+          authCache.set(
+            cacheKey,
+            (async () => {
+              const authEvent = {
+                kind: 22242,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [
+                  ["relay", url],
+                  ["challenge", challenge],
+                ],
+                content: "",
+              };
+              const plainEvent = JSON.parse(JSON.stringify(authEvent));
+              const signedAuth = await u.signer.signEvent(plainEvent);
+              return signedAuth;
+            })().finally(() => {
+              authCache.delete(cacheKey);
+            }),
+          );
+        }
+        return authCache.get(cacheKey)!;
+      },
+    } as { auth: (challenge: string) => Promise<NostrEvent> };
+  }
+
+  onInit?.(urls);
+
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i]!;
+
+    if (signal?.aborted) {
+      throw new Error("Authentication aborted");
+    }
+
+    onStepStart?.(i, url);
+
+    const relayMap = getPoolRelayMap();
+    const existing = relayMap.get(url) as NRelay1 | undefined;
+    if (existing) {
+      try {
+        existing.close();
+      }
+      catch {}
+      relayMap.delete(url);
+    }
+
+    const relay = new NRelay1(url, buildAuthOptions(url));
+    relayMap.set(url, relay);
+
+    // Trigger an operation that will cause relay to request AUTH if needed
+    try {
+      await Promise.race([
+        relay.query([{ kinds: [1], limit: 1 }]),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("auth-timeout")), timeoutMs)),
+      ]);
+    }
+    catch {
+      // Ignore; goal is to trigger AUTH flow, not to fetch data
+    }
+
+    onStepComplete?.(i, url);
+  }
+}
+
 // Separate composable for relay management
 export function useRelayManager() {
   if (!relayStatusMap) {
@@ -221,8 +333,8 @@ export function useRelayManager() {
           // Test the connection by sending a simple query
           try {
             // Add relay to pool temporarily for testing
-            // @ts-expect-error - accessing private property for dynamic relay management
-            pool.relays.set(url, relay);
+            const relayMap = getPoolRelayMap();
+            relayMap.set(url, relay);
 
             // Send a test query to verify connection
             await Promise.race([
@@ -245,8 +357,7 @@ export function useRelayManager() {
             const { [url]: _, ...rest } = relayStatusMap.value;
             relayStatusMap.value = rest;
             relay.close();
-            // @ts-expect-error - accessing private property for dynamic relay management
-            pool.relays.delete(url);
+            relayMap.delete(url);
             throw new Error(`Failed to connect: ${connectionError instanceof Error ? connectionError.message : "Invalid relay URL"}`);
           }
         }
@@ -288,12 +399,11 @@ export function useRelayManager() {
         }
 
         // Disconnect from the relay
-        // @ts-expect-error - accessing private property for dynamic relay management
-        const relay = pool.relays.get(url);
+        const relayMap = getPoolRelayMap();
+        const relay = relayMap.get(url);
         if (relay) {
           relay.close();
-          // @ts-expect-error - accessing private property for dynamic relay management
-          pool.relays.delete(url);
+          relayMap.delete(url);
         }
 
         // Remove from status map

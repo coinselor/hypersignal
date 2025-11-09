@@ -5,6 +5,7 @@ import type { NostrEvent } from "nostr-tools";
 import { z } from "zod";
 
 import { createHyperSignalEvent } from "../../models/events";
+import { ensureAuthForSpecialRelays } from "../composables/use-nostr-pool";
 
 const props = defineProps<{
   open: boolean;
@@ -42,6 +43,23 @@ const eventDraft = ref<Omit<NostrEvent, "id" | "sig"> | null>(null);
 
 // Loading states
 const isPublishing = ref(false);
+const authLoading = ref(false);
+const loaderSteps = ref<{ text: string; async?: boolean }[]>([]);
+let authAbort: AbortController | null = null;
+
+function onAuthOverlayClose() {
+  try {
+    authAbort?.abort();
+  }
+  catch {}
+  finally {
+    authLoading.value = false;
+  }
+}
+
+function setLoaderMessage(message: string) {
+  loaderSteps.value = [{ text: message, async: true }];
+}
 
 // Validation schemas
 const hexSchema = z.string().regex(/^[0-9a-f]+$/, "Must contain only hexadecimal characters");
@@ -197,6 +215,12 @@ async function signAndPublish() {
   isPublishing.value = true;
 
   try {
+    // Pre-authenticate special relays with multi-step loader
+    authLoading.value = true;
+    authAbort = new AbortController();
+    setLoaderMessage("Awaiting event signatures…");
+    await ensureAuthForSpecialRelays({ signal: authAbort.signal });
+
     // Check if extension is available (for browser extension login)
     const windowNostr = (globalThis as unknown as { nostr?: NostrSigner }).nostr;
     if (user.value.method === "extension" && !windowNostr) {
@@ -245,6 +269,8 @@ async function signAndPublish() {
   }
   finally {
     isPublishing.value = false;
+    authLoading.value = false;
+    authAbort = null;
   }
 }
 
@@ -485,4 +511,5 @@ watch(() => props.open, (newValue) => {
       </div>
     </template>
   </UModal>
+  <MultiStepLoader :steps="loaderSteps" :loading="authLoading" @close="onAuthOverlayClose" />
 </template>

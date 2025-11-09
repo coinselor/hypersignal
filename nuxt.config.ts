@@ -13,6 +13,7 @@ export default defineNuxtConfig({
         ],
         specialRelays: [
           "ws://localhost:3334",
+          "ws://localhost:3335",
         ],
       },
       authorizedPubkeys: [
