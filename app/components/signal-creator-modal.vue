@@ -5,6 +5,7 @@ import type { NostrEvent } from "nostr-tools";
 import { z } from "zod";
 
 import { createHyperSignalEvent } from "../../models/events";
+import { useFeed } from "../composables/use-feed";
 import { ensureAuthForSpecialRelays } from "../composables/use-nostr-pool";
 
 const props = defineProps<{
@@ -20,6 +21,7 @@ const toast = useToast();
 const { user } = useCurrentUser();
 const { isAuthorized } = useAuthorization();
 const pool = useNostrPool();
+const { refreshFeed } = useFeed();
 
 // Multi-step wizard state
 const currentStep = ref(1);
@@ -240,6 +242,7 @@ async function signAndPublish() {
       color: "success",
     });
 
+    refreshFeed();
     emit("signalCreated");
     emit("update:open", false);
     resetForm();

@@ -127,19 +127,55 @@ export function useFeed() {
     }
   }
 
-  onMounted(() => {
-    subscriberCount.value += 1;
+  type StartOptions = {
+    reset?: boolean;
+    bootstrapping?: boolean;
+  };
 
-    if (!isInitialized.value) {
-      const controller = new AbortController();
-      controllerState.value = controller;
-      isInitialized.value = true;
-      fetchEvents(controller);
+  function startSubscription(options: StartOptions = {}) {
+    const { reset = false, bootstrapping = false } = options;
 
+    if (controllerState.value) {
+      controllerState.value.abort();
+    }
+
+    if (reset) {
+      signals.value = [];
+      acks.value = [];
+    }
+
+    if (bootstrapping)
+      isBootstrapping.value = true;
+
+    const controller = new AbortController();
+    controllerState.value = controller;
+    isInitialized.value = true;
+    fetchEvents(controller);
+
+    if (bootstrapping) {
       setTimeout(() => {
         if (isBootstrapping.value)
           isBootstrapping.value = false;
       }, 1200);
+    }
+  }
+
+  function refreshFeed(options: StartOptions = {}) {
+    // Avoid triggering if there are no active subscribers.
+    if (subscriberCount.value === 0)
+      return;
+
+    startSubscription({
+      reset: options.reset ?? false,
+      bootstrapping: options.bootstrapping ?? false,
+    });
+  }
+
+  onMounted(() => {
+    subscriberCount.value += 1;
+
+    if (!isInitialized.value) {
+      startSubscription({ reset: true, bootstrapping: true });
     }
 
     onUnmounted(() => {
@@ -157,5 +193,6 @@ export function useFeed() {
     signals,
     acks,
     isBootstrapping,
+    refreshFeed,
   };
 }
