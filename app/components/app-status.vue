@@ -39,6 +39,18 @@ const canCreateSignal = computed(() => {
   return Boolean(user.value && checkAuthorized(user.value.pubkey));
 });
 
+const actionHeadlineClass = computed(() => {
+  if (!activePlan.value.hasActivePlan)
+    return "text-primary";
+
+  const action = activePlan.value.action?.toLowerCase?.();
+
+  if (action === "reboot")
+    return "text-cyan-400";
+
+  return "text-primary";
+});
+
 // Helper to format action into readable title
 function getActionTitle(action: string | null): string {
   if (!action)
@@ -73,9 +85,9 @@ function formatTimestamp(timestamp: number): string {
 
 <template>
   <motion.div
-    layout
     class="flex flex-col items-center text-center space-y-2"
-    :transition="{ layout: { duration: 0.6, ease: 'easeOut' } }"
+    :initial="{ opacity: 0, y: -8 }"
+    :animate="{ opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } }"
   >
     <template v-if="isBootstrapping">
       <USkeleton class="h-6 w-20 rounded-full" />
@@ -87,7 +99,7 @@ function formatTimestamp(timestamp: number): string {
         Action
       </UBadge>
 
-      <h1 class="font-mono text-3xl sm:text-4xl font-semibold text-primary">
+      <h1 class="font-mono text-3xl sm:text-4xl font-semibold" :class="actionHeadlineClass">
         {{ activePlan.hasActivePlan ? getActionTitle(activePlan.action) : 'Hyper Ready.' }}
       </h1>
 
@@ -105,7 +117,6 @@ function formatTimestamp(timestamp: number): string {
     <motion.div
       v-if="canCreateSignal"
       key="create-signal"
-      layout
       class="flex justify-center my-16"
       :initial="{ opacity: 0, y: -10, scale: 0.95 }"
       :animate="{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 220, damping: 20, mass: 0.6, bounce: 0.25 } }"
@@ -119,26 +130,18 @@ function formatTimestamp(timestamp: number): string {
 
   <motion.section
     v-if="activePlan.hasActivePlan"
-    layout
     class="w-full max-w mt-10"
-    :transition="{ layout: { duration: 0.75, ease: [0.22, 1, 0.36, 1] } }"
   >
     <motion.h2
-      layout
       class="text-2xl sm:text-3xl tracking-widest text-center font-medium font-mono"
-      :transition="{ layout: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } }"
     >
       Quorum
     </motion.h2>
     <motion.div
-      layout
       class="flex items-center justify-center mb-4"
-      :transition="{ layout: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } }"
     >
       <motion.div
-        layout
         class="text-3xl sm:text-4xl mt-4 font-mono font-semibold"
-        :transition="{ layout: { duration: 0.65, ease: [0.22, 1, 0.36, 1] } }"
       >
         <template v-if="isBootstrapping">
           <USkeleton class="h-8 w-28" />

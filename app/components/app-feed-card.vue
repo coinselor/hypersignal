@@ -45,6 +45,13 @@ const accentBadgeColor = computed(() => {
   return "warning";
 });
 
+const accentBadgeClasses = computed(() => {
+  if (props.signal.action === "reboot")
+    return "bg-cyan-100 text-cyan-700 ring-1 ring-cyan-200 dark:bg-cyan-500/20 dark:text-cyan-200 dark:ring-cyan-400/40";
+
+  return "";
+});
+
 const _accentGradient = computed(() => props.signal.action === "upgrade"
   ? "from-primary-400/80 via-primary-500 to-primary-400/80"
   : "from-amber-400/80 via-amber-500 to-amber-400/80",
@@ -111,6 +118,7 @@ watch(() => props.signal.pubkey, (pubkey) => {
                   variant="soft"
                   size="sm"
                   class="capitalize"
+                  :class="accentBadgeClasses"
                 >
                   {{ actionLabel }}
                 </UBadge>
