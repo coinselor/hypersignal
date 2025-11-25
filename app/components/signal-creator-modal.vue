@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { createHyperSignalEvent } from "../../models/events";
 import { useFeed } from "../composables/use-feed";
-import { ensureAuthForSpecialRelays } from "../composables/use-nostr-pool";
+import { publishToSpecialRelays } from "../composables/use-nostr-pool";
 
 const props = defineProps<{
   open: boolean;
@@ -215,26 +215,26 @@ async function signAndPublish() {
   }
 
   isPublishing.value = true;
+  authLoading.value = true;
+  authAbort = new AbortController();
 
   try {
-    // Pre-authenticate special relays with multi-step loader
-    authLoading.value = true;
-    authAbort = new AbortController();
-    setLoaderMessage("Awaiting event signatures…");
-    await ensureAuthForSpecialRelays({ signal: authAbort.signal });
-
     // Check if extension is available (for browser extension login)
     const windowNostr = (globalThis as unknown as { nostr?: NostrSigner }).nostr;
     if (user.value.method === "extension" && !windowNostr) {
       throw new Error("Please install a NIP-07 compatible Nostr extension");
     }
 
+    setLoaderMessage("Waiting for signature...");
+
     // Sign the event (convert to plain object to avoid DataCloneError with browser extension)
     const plainEvent = JSON.parse(JSON.stringify(eventDraft.value));
     const signedEvent = await user.value.signer.signEvent(plainEvent);
 
+    setLoaderMessage("Publishing to relays...");
+
     // Publish to special relays
-    const _publishResult = await pool.event(signedEvent);
+    await publishToSpecialRelays(signedEvent);
 
     toast.add({
       title: "HyperSignal Sent!",

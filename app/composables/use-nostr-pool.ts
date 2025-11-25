@@ -1,6 +1,6 @@
 import type { Filter, NostrEvent } from "nostr-tools";
 
-import { NPool, NRelay1 } from "@nostrify/nostrify";
+import { NPool, NRelay1, type NRelay } from "@nostrify/nostrify";
 
 import type { NUser } from "../../lib/nostr/n-user";
 
@@ -330,6 +330,73 @@ export async function ensureAuthForSpecialRelays(options: EnsureAuthOptions = {}
   }
 }
 
+/**
+ * Manually publish an event to all special relays and capture specific errors.
+ * This is needed because NPool swallows specific OK message errors.
+ */
+export async function publishToSpecialRelays(event: NostrEvent): Promise<void> {
+  if (!pool) {
+    useNostrPool();
+  }
+
+  const targets = getAllSpecialRelays();
+  if (targets.length === 0) {
+    throw new Error("No special relays configured");
+  }
+
+  const relayMap = getPoolRelayMap();
+  const errors: string[] = [];
+  let successCount = 0;
+
+  const publishPromises = targets.map(async (url) => {
+    try {
+      // Ensure relay is connected/open
+      // Ensure relay is connected/open
+      let relay: NRelay;
+      const existing = relayMap.get(url);
+      if (existing) {
+        relay = existing;
+      } else {
+        relay = pool!.relay(url);
+      }
+
+      // Publish with a 5s timeout
+      await Promise.race([
+        relay.event(event),
+        new Promise<void>((_, reject) => setTimeout(() => reject(new Error("Publish timeout")), 5000)),
+      ]);
+      successCount++;
+    }
+    catch (error) {
+      let msg = "Unknown error";
+      if (error instanceof Error) {
+        msg = error.message;
+      }
+      else if (typeof error === "string") {
+        msg = error;
+      }
+      errors.push(msg);
+    }
+  });
+
+  await Promise.all(publishPromises);
+
+  if (successCount === 0) {
+    // Prioritize hyperqube specific errors
+    const hyperqubeError = errors.find(e => e.toLowerCase().includes("hyperqube"));
+    if (hyperqubeError) {
+      throw new Error(hyperqubeError);
+    }
+    // Then restricted errors
+    const restrictedError = errors.find(e => e.toLowerCase().includes("restricted"));
+    if (restrictedError) {
+      throw new Error(restrictedError);
+    }
+    // Fallback to first error or generic
+    throw new Error(errors[0] || "Failed to publish to any relay");
+  }
+}
+
 // Separate composable for relay management
 export function useRelayManager() {
   if (!relayStatusMap) {
@@ -364,11 +431,11 @@ export function useRelayManager() {
           // Mark as connecting
           relayStatusMap.value[url] = { url, connected: false };
           const relay = new NRelay1(url);
+          const relayMap = getPoolRelayMap();
 
           // Test the connection by sending a simple query
           try {
             // Add relay to pool temporarily for testing
-            const relayMap = getPoolRelayMap();
             relayMap.set(url, relay);
 
             // Send a test query to verify connection
