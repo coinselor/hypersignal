@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ProcessedEvent } from "../../types";
+import type { ProcessedEvent } from "../../shared/types/events";
 
 defineProps<{
   ack: ProcessedEvent;

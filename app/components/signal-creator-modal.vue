@@ -4,7 +4,8 @@ import type { NostrEvent } from "nostr-tools";
 
 import { z } from "zod";
 
-import { createHyperSignalEvent } from "../../models/events";
+import { hexSchema, hyperSignalFormSchema, timestampSchema, urlSchema } from "../../shared/types/forms";
+import { createHyperSignalEvent, validateHyperSignalEvent } from "../../shared/utils/events";
 import { useFeed } from "../composables/use-feed";
 import { publishToSpecialRelays } from "../composables/use-nostr-pool";
 
@@ -20,14 +21,11 @@ const emit = defineEmits<{
 const toast = useToast();
 const { user } = useCurrentUser();
 const { isAuthorized } = useAuthorization();
-const pool = useNostrPool();
 const { refreshFeed } = useFeed();
 
-// Multi-step wizard state
 const currentStep = ref(1);
 const signalType = ref<"upgrade" | "reboot" | null>(null);
 
-// Form data
 const formData = ref({
   version: "",
   hash: "",
@@ -37,13 +35,10 @@ const formData = ref({
   requiredBy: "",
 });
 
-// Validation errors
 const errors = ref<Record<string, string>>({});
 
-// Event preview
 const eventDraft = ref<Omit<NostrEvent, "id" | "sig"> | null>(null);
 
-// Loading states
 const isPublishing = ref(false);
 const authLoading = ref(false);
 const loaderSteps = ref<{ text: string; async?: boolean }[]>([]);
@@ -63,12 +58,6 @@ function setLoaderMessage(message: string) {
   loaderSteps.value = [{ text: message, async: true }];
 }
 
-// Validation schemas
-const hexSchema = z.string().regex(/^[0-9a-f]+$/, "Must contain only hexadecimal characters");
-const urlSchema = z.string().url("Must be a valid URL");
-const timestampSchema = z.string().regex(/^\d+$/, "Must be a valid timestamp");
-
-// Reset form
 function resetForm() {
   currentStep.value = 1;
   signalType.value = null;
@@ -85,21 +74,18 @@ function resetForm() {
   isPublishing.value = false;
 }
 
-// Step navigation
 function goToStep(step: number) {
   currentStep.value = step;
 }
 
 function selectSignalType(type: "upgrade" | "reboot") {
   signalType.value = type;
-  // Pre-populate timestamp for reboot
   if (type === "reboot" && !formData.value.requiredBy) {
     formData.value.requiredBy = Math.floor(Date.now() / 1000).toString();
   }
   goToStep(2);
 }
 
-// Validation
 function validateField(field: string, value: string): string | null {
   try {
     switch (field) {
@@ -125,7 +111,7 @@ function validateField(field: string, value: string): string | null {
       case "version":
       case "network":
         if (!value.trim()) {
-          return `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
+          return "Version is required";
         }
         break;
     }
@@ -133,7 +119,7 @@ function validateField(field: string, value: string): string | null {
   }
   catch (error) {
     if (error instanceof z.ZodError) {
-      return error.errors[0].message;
+      return error.errors[0]?.message ?? "Invalid value";
     }
     return "Invalid value";
   }
@@ -141,24 +127,31 @@ function validateField(field: string, value: string): string | null {
 
 function validateForm(): boolean {
   errors.value = {};
-  let isValid = true;
 
-  // Validate required fields
-  const requiredFields = ["version", "hash", "network"];
-  if (signalType.value === "reboot") {
-    requiredFields.push("genesisUrl", "requiredBy");
+  const result = hyperSignalFormSchema.safeParse({
+    action: signalType.value,
+    network: formData.value.network,
+    version: formData.value.version,
+    hash: formData.value.hash,
+    genesis_url: formData.value.genesisUrl || undefined,
+    required_by: formData.value.requiredBy || undefined,
+    content: formData.value.content,
+  });
+
+  if (!result.success) {
+    result.error.issues.forEach((issue) => {
+      const path = issue.path[0];
+      if (path === "genesis_url")
+        errors.value.genesisUrl = issue.message;
+      else if (path === "required_by")
+        errors.value.requiredBy = issue.message;
+      else if (path)
+        errors.value[path.toString()] = issue.message;
+    });
+    return false;
   }
 
-  for (const field of requiredFields) {
-    const value = formData.value[field as keyof typeof formData.value];
-    const error = validateField(field, value);
-    if (error) {
-      errors.value[field] = error;
-      isValid = false;
-    }
-  }
-
-  return isValid;
+  return true;
 }
 
 // Generate event preview
@@ -197,6 +190,16 @@ function generatePreview() {
       requiredBy: signalType.value === "reboot" ? formData.value.requiredBy : undefined,
     });
 
+    const validation = validateHyperSignalEvent({
+      ...eventDraft.value,
+      id: "00".repeat(32),
+      sig: "00".repeat(64),
+    } as any);
+
+    if (!validation.valid) {
+      throw new Error(`Event validation failed: ${validation.error}`);
+    }
+
     goToStep(3);
   }
   catch (error) {
@@ -208,7 +211,7 @@ function generatePreview() {
   }
 }
 
-// Sign and publish
+
 async function signAndPublish() {
   if (!eventDraft.value || !user.value) {
     return;
@@ -219,7 +222,7 @@ async function signAndPublish() {
   authAbort = new AbortController();
 
   try {
-    // Check if extension is available (for browser extension login)
+
     const windowNostr = (globalThis as unknown as { nostr?: NostrSigner }).nostr;
     if (user.value.method === "extension" && !windowNostr) {
       throw new Error("Please install a NIP-07 compatible Nostr extension");
@@ -227,13 +230,12 @@ async function signAndPublish() {
 
     setLoaderMessage("Waiting for signature...");
 
-    // Sign the event (convert to plain object to avoid DataCloneError with browser extension)
+
     const plainEvent = JSON.parse(JSON.stringify(eventDraft.value));
     const signedEvent = await user.value.signer.signEvent(plainEvent);
 
     setLoaderMessage("Publishing to relays...");
 
-    // Publish to special relays
     await publishToSpecialRelays(signedEvent);
 
     toast.add({
@@ -277,7 +279,7 @@ async function signAndPublish() {
   }
 }
 
-// Watch for open prop changes
+
 watch(() => props.open, (newValue) => {
   if (newValue) {
     resetForm();
@@ -453,8 +455,10 @@ watch(() => props.open, (newValue) => {
               </div>
               <div class="space-y-1">
                 <div v-for="(tag, index) in eventDraft.tags" :key="index" class="flex items-start gap-2 font-mono text-xs">
-                  <span class="text-lime-600 dark:text-lime-400">[{{ index }}]</span>
-                  <span class="text-zinc-700 dark:text-zinc-300">{{ JSON.stringify(tag) }}</span>
+                  <span class="text-lime-600 dark:text-lime-400 flex-shrink-0">[{{ index }}]</span>
+                  <UTooltip :text="JSON.stringify(tag)" class="flex-1 min-w-0">
+                    <span class="text-zinc-700 dark:text-zinc-300 truncate block">{{ JSON.stringify(tag) }}</span>
+                  </UTooltip>
                 </div>
               </div>
             </div>

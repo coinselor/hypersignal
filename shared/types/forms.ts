@@ -1,32 +1,20 @@
 import { z } from "zod";
 
-import { HyperSignalEventSchema, QubeManagerEventSchema } from "../models/events";
+import { ActionAckEventSchema, HyperSignalEventSchema } from "./events";
+
+export const hexSchema = z.string().regex(/^[0-9a-f]{64}$/, "Hash must be a 64-character hex string");
+export const urlSchema = z.string().url("Invalid URL format");
+export const timestampSchema = z.string().regex(/^\d+$/, "Must be a valid timestamp");
 
 export const hyperSignalFormSchema = z.object({
   action: z.enum(["upgrade", "reboot"]),
   network: z.string().min(1, "Network is required"),
-  version: z.string().optional(),
-  hash: z.string().optional(),
-  genesis_url: z.string().url("Invalid URL format").optional(),
-  required_by: z.string().optional(),
+  version: z.string().min(1, "Version is required"),
+  hash: hexSchema,
+  genesis_url: urlSchema.optional(),
+  required_by: timestampSchema.optional(),
   content: z.string().optional(),
 }).superRefine((data, ctx) => {
-  if (data.action === "upgrade") {
-    if (!data.version) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Version is required for upgrade action",
-        path: ["version"],
-      });
-    }
-    if (!data.hash) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Hash is required for upgrade action",
-        path: ["hash"],
-      });
-    }
-  }
   if (data.action === "reboot") {
     if (!data.genesis_url) {
       ctx.addIssue({
@@ -49,7 +37,7 @@ export type HyperSignalForm = z.infer<typeof hyperSignalFormSchema>;
 
 export const appEventSchema = z.union([
   HyperSignalEventSchema,
-  QubeManagerEventSchema,
+  ActionAckEventSchema,
 ]);
 
 export type AppEvent = z.infer<typeof appEventSchema>;
