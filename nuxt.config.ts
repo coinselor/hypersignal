@@ -4,8 +4,6 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineNuxtConfig({
   ssr: false,
   compatibilityDate: "2025-05-15",
-  app: {
-    baseURL: process.env.NODE_ENV === 'production' ? '/hypersignal' : '/' },
   runtimeConfig: {
     public: {
       nostr: {
@@ -14,8 +12,8 @@ export default defineNuxtConfig({
           "wss://relay.primal.net",
         ],
         specialRelays: [
-          "ws://localhost:3334",
-          "ws://localhost:3335",
+          "wss://qubestr.zenon.red",
+          "wss://qubestr.zenon.info",
         ],
       },
       authorizedPubkeys: [

@@ -128,7 +128,6 @@ function getStatusIcon(status: RelayStatus) {
   >
     <template #body>
       <div class="space-y-6">
-        <!-- Public Relays Section -->
         <div>
           <h4 class="font-semibold text-sm uppercase tracking-wide text-gray-700 dark:text-gray-300 mb-3">
             Public Relays
@@ -140,7 +139,7 @@ function getStatusIcon(status: RelayStatus) {
             <div v-for="relay in publicRelays" :key="relay.url" class="flex items-center gap-3 py-2">
               <UIcon
                 :name="getStatusIcon(relay)"
-                class="text-lg flex-shrink-0"
+                class="text-lg shrink-0"
                 :class="[getStatusColor(relay), { 'animate-spin': !relay.connected && !relay.error }]"
               />
               <p class="font-mono text-sm truncate flex-1">
@@ -157,7 +156,6 @@ function getStatusIcon(status: RelayStatus) {
           </div>
         </div>
 
-        <!-- Special Relays Section -->
         <div>
           <h4 class="font-semibold text-sm uppercase tracking-wide text-gray-700 dark:text-gray-300 mb-3">
             Special Relays
@@ -169,7 +167,7 @@ function getStatusIcon(status: RelayStatus) {
             <div v-for="relay in specialRelays" :key="relay.url" class="flex items-center gap-3 py-2">
               <UIcon
                 :name="getStatusIcon(relay)"
-                class="text-lg flex-shrink-0"
+                class="text-lg shrink-0"
                 :class="[getStatusColor(relay), { 'animate-spin': !relay.connected && !relay.error }]"
               />
               <p class="font-mono text-sm truncate flex-1">
@@ -186,7 +184,6 @@ function getStatusIcon(status: RelayStatus) {
           </div>
         </div>
 
-        <!-- Custom User Relays Section -->
         <div>
           <h4 class="font-semibold text-sm uppercase tracking-wide text-gray-700 dark:text-gray-300 mb-3">
             Your Custom Relays
@@ -195,7 +192,6 @@ function getStatusIcon(status: RelayStatus) {
             Additional special relays you've added
           </p>
 
-          <!-- Add Relay Form -->
           <div class="flex gap-2 mb-3">
             <UInput
               v-model="newRelayUrl"
@@ -215,12 +211,11 @@ function getStatusIcon(status: RelayStatus) {
             </UButton>
           </div>
 
-          <!-- User Relay List -->
           <div v-if="userRelays.length > 0" class="space-y-2">
             <div v-for="relay in userRelays" :key="relay.url" class="flex items-center gap-3 py-2">
               <UIcon
                 :name="getStatusIcon(relay)"
-                class="text-lg flex-shrink-0"
+                class="text-lg shrink-0"
                 :class="[getStatusColor(relay), { 'animate-spin': !relay.connected && !relay.error }]"
               />
               <p class="font-mono text-sm truncate flex-1">

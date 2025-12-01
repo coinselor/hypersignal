@@ -1,5 +1,4 @@
 <script setup lang="ts">
-// This component accepts all SVG attributes via $attrs
 </script>
 
 <template>

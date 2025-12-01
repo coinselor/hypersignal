@@ -18,7 +18,6 @@ export function useNostrLogin() {
   });
   const isLoggedIn = computed(() => !!currentUser.value);
 
-  // Array to support multiple logins in the future
   const logins = computed<NLoginType[]>(() => {
     return currentUser.value ? [currentUser.value] : [];
   });

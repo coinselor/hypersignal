@@ -1,3 +1,115 @@
+<script setup lang="ts">
+import { onUnmounted, ref, watch } from "vue";
+
+type Step = {
+  text: string;
+  afterText?: string;
+  async?: boolean;
+  duration?: number;
+  action?: () => void | Promise<void>;
+};
+type Props = {
+  steps: Step[];
+  loading?: boolean;
+  defaultDuration?: number;
+  preventClose?: boolean;
+};
+const props = withDefaults(defineProps<Props>(), {
+  loading: false,
+  defaultDuration: 1500,
+  preventClose: false,
+});
+
+const emit = defineEmits<{
+  stateChange: [number];
+  complete: [];
+  close: [];
+}>();
+
+const currentState = ref(0);
+const stepStartTime = ref(Date.now());
+const isLastStepComplete = ref(false);
+let currentTimer: any = null;
+
+async function executeStepAction(step: Step) {
+  if (typeof step.action === "function") {
+    await step.action();
+  }
+}
+
+async function proceedToNextStep() {
+  const currentStep = props.steps[currentState.value];
+  if (!currentStep)
+    return;
+  await executeStepAction(currentStep);
+  if (currentState.value < props.steps.length - 1) {
+    currentState.value++;
+    stepStartTime.value = Date.now();
+    emit("stateChange", currentState.value);
+    processCurrentStep();
+  }
+  else {
+    isLastStepComplete.value = true;
+    emit("complete");
+  }
+}
+
+async function processCurrentStep() {
+  if (currentTimer) {
+    clearTimeout(currentTimer);
+  }
+  const currentStep = props.steps[currentState.value];
+  if (!currentStep)
+    return;
+  const duration = currentStep.duration || props.defaultDuration;
+  if (!currentStep.async) {
+    currentTimer = setTimeout(() => {
+      proceedToNextStep();
+    }, duration);
+  }
+}
+
+function close() {
+  emit("close");
+}
+
+onUnmounted(() => {
+  if (currentTimer) {
+    clearTimeout(currentTimer);
+  }
+});
+
+watch(
+  () => props.steps[currentState.value]?.async,
+  async (isAsync, oldIsAsync) => {
+    if (isAsync === false && oldIsAsync === true) {
+      const currentStep = props.steps[currentState.value];
+      if (!currentStep)
+        return;
+      const duration = currentStep.duration || props.defaultDuration;
+      currentTimer = setTimeout(() => {
+        proceedToNextStep();
+      }, duration);
+    }
+  },
+);
+
+watch(
+  () => props.loading,
+  (newLoading) => {
+    if (newLoading) {
+      currentState.value = 0;
+      stepStartTime.value = Date.now();
+      isLastStepComplete.value = false;
+      processCurrentStep();
+    }
+    else if (currentTimer) {
+      clearTimeout(currentTimer);
+    }
+  },
+);
+</script>
+
 <template>
   <Teleport to="body">
     <Transition
@@ -104,110 +216,3 @@
     </Transition>
   </Teleport>
 </template>
-
-<script setup lang="ts">
-import { onUnmounted, ref, watch } from "vue";
-
-type Step = {
-  text: string;
-  afterText?: string;
-  async?: boolean;
-  duration?: number;
-  action?: () => void | Promise<void>;
-};
-type Props = {
-  steps: Step[];
-  loading?: boolean;
-  defaultDuration?: number;
-  preventClose?: boolean;
-};
-const props = withDefaults(defineProps<Props>(), {
-  loading: false,
-  defaultDuration: 1500,
-  preventClose: false,
-});
-
-const emit = defineEmits<{
-  stateChange: [number];
-  complete: [];
-  close: [];
-}>();
-
-const currentState = ref(0);
-const stepStartTime = ref(Date.now());
-const isLastStepComplete = ref(false);
-let currentTimer: any = null;
-
-async function executeStepAction(step: Step) {
-  if (typeof step.action === "function") {
-    await step.action();
-  }
-}
-
-async function proceedToNextStep() {
-  const currentStep = props.steps[currentState.value];
-  if (!currentStep) return;
-  await executeStepAction(currentStep);
-  if (currentState.value < props.steps.length - 1) {
-    currentState.value++;
-    stepStartTime.value = Date.now();
-    emit("stateChange", currentState.value);
-    processCurrentStep();
-  } else {
-    isLastStepComplete.value = true;
-    emit("complete");
-  }
-}
-
-async function processCurrentStep() {
-  if (currentTimer) {
-    clearTimeout(currentTimer);
-  }
-  const currentStep = props.steps[currentState.value];
-  if (!currentStep) return;
-  const duration = currentStep.duration || props.defaultDuration;
-  if (!currentStep.async) {
-    currentTimer = setTimeout(() => {
-      proceedToNextStep();
-    }, duration);
-  }
-}
-
-function close() {
-  emit("close");
-}
-
-onUnmounted(() => {
-  if (currentTimer) {
-    clearTimeout(currentTimer);
-  }
-});
-
-watch(
-  () => props.steps[currentState.value]?.async,
-  async (isAsync, oldIsAsync) => {
-    if (isAsync === false && oldIsAsync === true) {
-      const currentStep = props.steps[currentState.value];
-      if (!currentStep) return;
-      const duration = currentStep.duration || props.defaultDuration;
-      currentTimer = setTimeout(() => {
-        proceedToNextStep();
-      }, duration);
-    }
-  },
-);
-
-watch(
-  () => props.loading,
-  (newLoading) => {
-    if (newLoading) {
-      currentState.value = 0;
-      stepStartTime.value = Date.now();
-      isLastStepComplete.value = false;
-      processCurrentStep();
-    } else if (currentTimer) {
-      clearTimeout(currentTimer);
-    }
-  },
-);
-</script>

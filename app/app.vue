@@ -15,7 +15,6 @@ function openSignalCreator() {
       </UContainer>
     </NuxtLayout>
 
-    <!-- Signal Creator Modal at app root -->
     <SignalCreatorModal v-model:open="showSignalCreator" />
   </UApp>
 </template>

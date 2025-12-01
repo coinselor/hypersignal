@@ -20,13 +20,14 @@ const dotColor = computed(() => {
 </script>
 
 <template>
-  <footer class="p-4 sm:p-6 lg:p-8 mt-auto flex justify-center items-center gap-x-4 text-sm text-stone-500 dark:text-stone-400">
+  <footer
+    class="p-4 sm:p-6 lg:p-8 mt-auto flex justify-center items-center gap-x-4 text-sm text-stone-500 dark:text-stone-400"
+  >
     <p class="font-mono text-lg">
       Built by Aliens
     </p>
     <div class="h-4 w-px bg-stone-300 dark:bg-stone-700" />
 
-    <!-- Relay Status Indicator -->
     <UButton
       variant="ghost"
       color="neutral"
@@ -43,6 +44,9 @@ const dotColor = computed(() => {
     <div class="h-4 w-px bg-stone-300 dark:bg-stone-700" />
     <ColorModeButton />
 
-    <RelayManagerModal :open="showRelayModal" @update:open="showRelayModal = $event" />
+    <RelayManagerModal
+      :open="showRelayModal"
+      @update:open="showRelayModal = $event"
+    />
   </footer>
 </template>

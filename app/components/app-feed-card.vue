@@ -2,7 +2,7 @@
 import { nip19 } from "nostr-tools";
 import { computed, onMounted, watch } from "vue";
 
-import type { ProcessedEvent } from "../../types";
+import type { ProcessedEvent } from "../../shared/types/events";
 
 import { formatFriendlyDate, truncateHash } from "../utils/format";
 
@@ -17,10 +17,12 @@ const { fetchProfile, getProfile } = useProfiles();
 const profile = getProfile(props.signal.pubkey);
 
 const displayName = computed(() => {
-  return profile.value?.display_name
+  return (
+    profile.value?.display_name
     || profile.value?.name
     || props.signal.author.name
-    || `...${props.signal.pubkey.slice(-4)}`;
+    || `...${props.signal.pubkey.slice(-4)}`
+  );
 });
 
 const createdAt = computed(() => {
@@ -52,16 +54,6 @@ const accentBadgeClasses = computed(() => {
   return "";
 });
 
-const _accentGradient = computed(() => props.signal.action === "upgrade"
-  ? "from-primary-400/80 via-primary-500 to-primary-400/80"
-  : "from-amber-400/80 via-amber-500 to-amber-400/80",
-);
-
-const _accentIcon = computed(() => props.signal.action === "upgrade"
-  ? "i-heroicons-arrow-trending-up"
-  : "i-heroicons-arrow-path",
-);
-
 const npubLabel = computed(() => {
   const pubkey = props.signal.pubkey;
   if (!pubkey)
@@ -76,15 +68,18 @@ const npubLabel = computed(() => {
   }
 });
 
-
 onMounted(() => {
   void fetchProfile(props.signal.pubkey);
 });
 
-watch(() => props.signal.pubkey, (pubkey) => {
-  if (pubkey)
-    void fetchProfile(pubkey);
-});
+watch(
+  () => props.signal.pubkey,
+  (pubkey) => {
+    if (pubkey) {
+      void fetchProfile(pubkey);
+    }
+  },
+);
 </script>
 
 <template>
@@ -109,10 +104,16 @@ watch(() => props.signal.pubkey, (pubkey) => {
         />
 
         <div class="flex-1 space-y-3">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div
+            class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+          >
             <div class="space-y-1">
               <div class="flex flex-wrap items-center gap-2">
-                <span class="text-base font-semibold text-zinc-900 dark:text-zinc-100">{{ displayName }}</span>
+                <span
+                  class="text-base font-semibold text-zinc-900 dark:text-zinc-100"
+                >
+                  {{ displayName }}
+                </span>
                 <UBadge
                   :color="accentBadgeColor"
                   variant="soft"
@@ -135,13 +136,15 @@ watch(() => props.signal.pubkey, (pubkey) => {
         </div>
       </div>
 
-      <p v-if="contentPreview" class="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300 whitespace-pre-line line-clamp-3">
+      <p
+        v-if="contentPreview"
+        class="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300 whitespace-pre-line line-clamp-3"
+      >
         {{ contentPreview }}
       </p>
       <p v-else class="text-sm italic text-zinc-400 dark:text-zinc-500">
         No message provided.
       </p>
-
     </div>
   </UCard>
 </template>

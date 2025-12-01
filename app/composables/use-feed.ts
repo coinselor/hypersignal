@@ -2,7 +2,7 @@ import type { NostrEvent, Filter as NostrFilter } from "nostr-tools";
 
 import { onMounted, onUnmounted } from "vue";
 
-import type { ProcessedEvent } from "../../types";
+import type { ProcessedEvent } from "../../shared/types/events";
 
 const SIGNAL_KIND = 33321;
 const ACK_KIND = 3333;
@@ -161,7 +161,6 @@ export function useFeed() {
   }
 
   function refreshFeed(options: StartOptions = {}) {
-    // Avoid triggering if there are no active subscribers.
     if (subscriberCount.value === 0)
       return;
 

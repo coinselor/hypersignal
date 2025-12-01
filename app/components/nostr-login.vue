@@ -38,10 +38,8 @@ const truncatedNpub = computed(() => {
 
 async function handleLogin() {
   try {
-    // Use the NLogin class to handle the extension login flow.
     const userLogin = await NLogin.fromExtension();
 
-    // Check if user is authorized
     if (!isAuthorized(userLogin.pubkey)) {
       toast.add({
         title: "Access Restricted",
@@ -51,7 +49,6 @@ async function handleLogin() {
       return;
     }
 
-    // Save the user session using our composable.
     login(userLogin.toJSON());
   }
   catch (error) {
@@ -64,7 +61,6 @@ async function handleLogin() {
   }
 }
 
-// Watch for user changes and check authorization
 watch(user, (currentUser) => {
   if (currentUser && !isAuthorized(currentUser.pubkey)) {
     toast.add({

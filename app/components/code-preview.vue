@@ -22,7 +22,6 @@ const hasCodeSlot = computed(() => !!slots.code);
 const appConfig = useAppConfig();
 const themeConfig = computed(() => appConfig.ui?.prose?.codePreview || {});
 
-// Merge theme slots with user-provided UI overrides
 const rootClass = computed(() => {
   const base = themeConfig.value.slots?.root || "my-5";
   return props.ui.root ? `${base} ${props.ui.root}` : base;
@@ -31,7 +30,6 @@ const rootClass = computed(() => {
 const previewClass = computed(() => {
   let base = themeConfig.value.slots?.preview || "flex justify-center border border-muted relative p-4 rounded-md";
 
-  // Apply variant if code slot exists
   if (hasCodeSlot.value && themeConfig.value.variants?.code?.true?.preview) {
     base = `${base} ${themeConfig.value.variants.code.true.preview}`;
   }

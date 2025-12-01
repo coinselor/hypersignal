@@ -10,16 +10,10 @@ export function useAuthorization() {
     return Array.isArray(pubkeys) ? pubkeys : [];
   });
 
-  /**
-   * Check if a pubkey is authorized to sign signal events
-   */
   function isAuthorized(pubkey: string): boolean {
     return authorizedPubkeys.value.includes(pubkey);
   }
 
-  /**
-   * Get list of all authorized pubkeys
-   */
   function getAuthorizedPubkeys(): string[] {
     return [...authorizedPubkeys.value];
   }

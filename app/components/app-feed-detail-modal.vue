@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 
-import type { ProcessedEvent } from "../../types";
+import type { ProcessedEvent } from "../../shared/types/events";
 
 import { formatDate, truncateHash } from "../utils/format";
 
@@ -35,10 +35,12 @@ const displayName = computed(() => {
   if (!props.signal)
     return "Unknown";
 
-  return profile.value?.display_name
+  return (
+    profile.value?.display_name
     || profile.value?.name
     || props.signal.author.name
-    || `...${props.signal.pubkey.slice(-4)}`;
+    || `...${props.signal.pubkey.slice(-4)}`
+  );
 });
 
 const createdAt = computed(() => {
@@ -52,8 +54,12 @@ const createdAt = computed(() => {
 const pubkeyFull = computed(() => props.signal?.pubkey ?? "");
 const eventIdFull = computed(() => props.signal?.id ?? "");
 
-const pubkeyLabel = computed(() => pubkeyFull.value ? truncateHash(pubkeyFull.value, 12, 12) : "");
-const eventIdLabel = computed(() => eventIdFull.value ? truncateHash(eventIdFull.value, 10, 8) : "");
+const pubkeyLabel = computed(() =>
+  pubkeyFull.value ? truncateHash(pubkeyFull.value, 12, 12) : "",
+);
+const eventIdLabel = computed(() =>
+  eventIdFull.value ? truncateHash(eventIdFull.value, 10, 8) : "",
+);
 
 const content = computed(() => props.signal?.content?.trim() ?? "");
 
@@ -64,10 +70,14 @@ const actionLabel = computed(() => {
   return props.signal?.action ? props.signal.action : "Signal";
 });
 
-const actionColor = computed(() => props.signal?.action === "upgrade" ? "primary" : "neutral");
+const actionColor = computed(() =>
+  props.signal?.action === "upgrade" ? "primary" : "neutral",
+);
 
 const modalTitle = computed(() => {
-  const base = actionLabel.value && (actionLabel.value === "Signal" ? null : actionLabel.value);
+  const base
+    = actionLabel.value
+      && (actionLabel.value === "Signal" ? null : actionLabel.value);
   return base ? `${base} Signal` : "Signal";
 });
 
@@ -131,9 +141,12 @@ function resetCopyState() {
   }
 }
 
-watch(() => props.signal, () => {
-  resetCopyState();
-});
+watch(
+  () => props.signal,
+  () => {
+    resetCopyState();
+  },
+);
 
 onBeforeUnmount(() => {
   resetCopyState();
@@ -150,7 +163,8 @@ function closeModal() {
     :title="modalTitle"
     :ui="{
       body: 'px-6 py-6 space-y-6',
-      footer: 'sm:flex sm:items-center sm:justify-between sm:px-6 sm:py-4 gap-3',
+      footer:
+        'sm:flex sm:items-center sm:justify-between sm:px-6 sm:py-4 gap-3',
     }"
     @update:open="emit('update:open', $event)"
   >
@@ -160,17 +174,32 @@ function closeModal() {
     <template #body>
       <div v-if="signal" class="space-y-6">
         <div class="flex items-center gap-4">
-          <ProfileAvatar :profile="profile" :pubkey="signal.pubkey" size="xl" class="shrink-0" />
+          <ProfileAvatar
+            :profile="profile"
+            :pubkey="signal.pubkey"
+            size="xl"
+            class="shrink-0"
+          />
 
           <div class="flex-1">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div
+              class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+            >
               <div class="flex items-center gap-2">
-                <span class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{{ displayName }}</span>
-                <UBadge :color="actionColor" variant="soft" class="text-xs capitalize">
+                <span
+                  class="text-lg font-semibold text-zinc-900 dark:text-zinc-100"
+                >{{ displayName }}</span>
+                <UBadge
+                  :color="actionColor"
+                  variant="soft"
+                  class="text-xs capitalize"
+                >
                   {{ actionLabel }}
                 </UBadge>
               </div>
-              <div class="flex items-center gap-1 text-xs font-mono text-zinc-500 dark:text-zinc-400">
+              <div
+                class="flex items-center gap-1 text-xs font-mono text-zinc-500 dark:text-zinc-400"
+              >
                 <UIcon name="i-heroicons-clock" class="h-3.5 w-3.5" />
                 <span>{{ createdAt }}</span>
               </div>
@@ -178,49 +207,68 @@ function closeModal() {
           </div>
         </div>
 
-        <div v-if="content" class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50/90 dark:bg-zinc-900/70 p-4 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+        <div
+          v-if="content"
+          class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50/90 dark:bg-zinc-900/70 p-4 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300"
+        >
           {{ content }}
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Action</span>
+            <span
+              class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+            >Action</span>
             <p class="text-sm text-zinc-800 dark:text-zinc-200 capitalize">
               {{ actionLabel }}
             </p>
           </div>
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Network</span>
+            <span
+              class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+            >Network</span>
             <p class="font-mono text-sm text-zinc-800 dark:text-zinc-200">
-              {{ signal.network || '—' }}
+              {{ signal.network || "—" }}
             </p>
           </div>
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Version</span>
+            <span
+              class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+            >Version</span>
             <p class="font-mono text-sm text-zinc-800 dark:text-zinc-200">
-              {{ signal.version || '0.0.0' }}
+              {{ signal.version || "0.0.0" }}
             </p>
           </div>
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Kind</span>
+            <span
+              class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+            >Kind</span>
             <p class="font-mono text-sm text-zinc-800 dark:text-zinc-200">
-              {{ signal.rawEvent.kind ?? '—' }}
+              {{ signal.rawEvent.kind ?? "—" }}
             </p>
           </div>
         </div>
 
         <div class="space-y-4">
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Pubkey</span>
+            <span
+              class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+            >Pubkey</span>
             <div class="flex items-center gap-2">
-              <p class="font-mono text-sm text-zinc-900 dark:text-zinc-100 break-all">
+              <p
+                class="font-mono text-sm text-zinc-900 dark:text-zinc-100 break-all"
+              >
                 {{ pubkeyLabel }}
               </p>
               <UButton
                 color="neutral"
                 variant="ghost"
                 size="xs"
-                :icon="copiedField === 'pubkey' ? 'i-heroicons-check' : 'i-heroicons-clipboard'"
+                :icon="
+                  copiedField === 'pubkey'
+                    ? 'i-heroicons-check'
+                    : 'i-heroicons-clipboard'
+                "
                 class="-ml-1"
                 @click="handleCopy('pubkey', pubkeyFull)"
               />
@@ -228,16 +276,24 @@ function closeModal() {
           </div>
 
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Event ID</span>
+            <span
+              class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+            >Event ID</span>
             <div class="flex items-center gap-2">
-              <p class="font-mono text-sm text-zinc-900 dark:text-zinc-100 break-all">
+              <p
+                class="font-mono text-sm text-zinc-900 dark:text-zinc-100 break-all"
+              >
                 {{ eventIdLabel }}
               </p>
               <UButton
                 color="neutral"
                 variant="ghost"
                 size="xs"
-                :icon="copiedField === 'eventId' ? 'i-heroicons-check' : 'i-heroicons-clipboard'"
+                :icon="
+                  copiedField === 'eventId'
+                    ? 'i-heroicons-check'
+                    : 'i-heroicons-clipboard'
+                "
                 class="-ml-1"
                 @click="handleCopy('eventId', eventIdFull)"
               />
@@ -246,7 +302,9 @@ function closeModal() {
         </div>
 
         <div class="space-y-3">
-          <h3 class="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          <h3
+            class="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+          >
             Tags
           </h3>
           <div v-if="hasTags" class="space-y-2">
@@ -267,7 +325,9 @@ function closeModal() {
     </template>
 
     <template #footer>
-      <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between"
+      >
         <UButton
           color="neutral"
           variant="ghost"
@@ -280,10 +340,14 @@ function closeModal() {
           color="primary"
           variant="soft"
           class="w-full sm:w-auto"
-          :icon="copiedRawJson ? 'i-heroicons-check' : 'i-heroicons-clipboard-document'"
+          :icon="
+            copiedRawJson
+              ? 'i-heroicons-check'
+              : 'i-heroicons-clipboard-document'
+          "
           @click="copyRawJson"
         >
-          {{ copiedRawJson ? 'Copied!' : 'Copy raw JSON' }}
+          {{ copiedRawJson ? "Copied!" : "Copy raw JSON" }}
         </UButton>
       </div>
     </template>

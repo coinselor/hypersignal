@@ -1,10 +1,10 @@
+import type { NRelay } from "@nostrify/nostrify";
 import type { Filter, NostrEvent } from "nostr-tools";
 
-import { NPool, NRelay1, type NRelay } from "@nostrify/nostrify";
+import { NPool, NRelay1 } from "@nostrify/nostrify";
 
 import type { NUser } from "../../lib/nostr/n-user";
 
-// Kinds that should be fetched from/published to app-specific relays only
 const APP_ONLY_KINDS = [33321, 3333];
 
 let pool: NPool | null = null;
@@ -14,7 +14,6 @@ let userRelays: Ref<string[]>;
 let cachedUser: ComputedRef<NUser | undefined> | null = null;
 let relayAuthState: Ref<Record<string, { pubkey: string; authedAt: number }>>;
 
-// Relay connection status tracking
 export type RelayStatus = {
   url: string;
   connected: boolean;
@@ -77,7 +76,6 @@ export function useNostrPool() {
 
     pool = new NPool({
       open(url) {
-        // Initialize relay status as connecting
         relayStatusMap.value[url] = { url, connected: false };
 
         type RelayOptions = { auth?: (challenge: string) => Promise<NostrEvent> };
@@ -136,8 +134,6 @@ export function useNostrPool() {
 
         const relay = new NRelay1(url, relayOptions);
 
-        // Optimistically set as connected after creation
-        // Note: NRelay1 doesn't expose WebSocket directly, so we track optimistically
         setTimeout(() => {
           if (relayStatusMap.value[url]) {
             relayStatusMap.value[url] = { url, connected: true };
@@ -149,7 +145,6 @@ export function useNostrPool() {
       async reqRouter(filters) {
         const map = new Map<string, Filter[]>();
 
-        // Separate filters for public and special relays
         const publicFilters: Filter[] = [];
         const specialFilters: Filter[] = [];
 
@@ -204,132 +199,6 @@ export function useNostrPool() {
   return pool;
 }
 
-type EnsureAuthOptions = {
-  onStepStart?: (index: number, url: string) => void;
-  onStepComplete?: (index: number, url: string) => void;
-  onInit?: (urls: string[]) => void;
-  timeoutMs?: number;
-  signal?: AbortSignal;
-  force?: boolean;
-};
-
-/**
- * Ensure NIP-42 authentication for all special relays, sequentially.
- * This rebuilds relay instances with an auth handler if they were opened before login.
- */
-export async function ensureAuthForSpecialRelays(options: EnsureAuthOptions = {}) {
-  const {
-    onStepStart,
-    onStepComplete,
-    onInit,
-    timeoutMs = 8000,
-    signal,
-    force = false,
-  } = options;
-
-  if (!pool) {
-    // Initialize pool if not already
-    useNostrPool();
-  }
-
-  const urls = getAllSpecialRelays();
-  if (urls.length === 0)
-    return;
-
-  if (!cachedUser) {
-    const { user } = useCurrentUser();
-    cachedUser = user;
-  }
-
-  const activeUser = cachedUser?.value;
-  if (!activeUser?.signer) {
-    throw new Error("Authentication requires an active signer");
-  }
-
-  function buildAuthOptions(url: string) {
-    const authCache = new Map<string, Promise<NostrEvent>>();
-    return {
-      auth: async (challenge: string) => {
-        const u = activeUser!;
-        const cacheKey = `${u.pubkey}:${url}:${challenge}`;
-        if (!authCache.has(cacheKey)) {
-          authCache.set(
-            cacheKey,
-            (async () => {
-              const authEvent = {
-                kind: 22242,
-                created_at: Math.floor(Date.now() / 1000),
-                tags: [
-                  ["relay", url],
-                  ["challenge", challenge],
-                ],
-                content: "",
-              };
-              const plainEvent = JSON.parse(JSON.stringify(authEvent));
-              const signedAuth = await u.signer.signEvent(plainEvent);
-              return signedAuth;
-            })().finally(() => {
-              authCache.delete(cacheKey);
-            }),
-          );
-        }
-        return authCache.get(cacheKey)!;
-      },
-    } as { auth: (challenge: string) => Promise<NostrEvent> };
-  }
-
-  onInit?.(urls);
-
-  for (let i = 0; i < urls.length; i++) {
-    const url = urls[i]!;
-
-    if (signal?.aborted) {
-      throw new Error("Authentication aborted");
-    }
-
-    onStepStart?.(i, url);
-
-    const authEntry = relayAuthState.value[url];
-    const isAlreadyAuthed = !force && authEntry?.pubkey === activeUser.pubkey;
-
-    if (isAlreadyAuthed) {
-      onStepComplete?.(i, url);
-      continue;
-    }
-
-    const relayMap = getPoolRelayMap();
-    const existing = relayMap.get(url) as NRelay1 | undefined;
-    if (existing) {
-      try {
-        existing.close();
-      }
-      catch {}
-      relayMap.delete(url);
-    }
-
-    const relay = new NRelay1(url, buildAuthOptions(url));
-    relayMap.set(url, relay);
-
-    // Trigger an operation that will cause relay to request AUTH if needed
-    try {
-      await Promise.race([
-        relay.query([{ kinds: [1], limit: 1 }]),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("auth-timeout")), timeoutMs)),
-      ]);
-
-      relayAuthState.value = {
-        ...relayAuthState.value,
-        [url]: { pubkey: activeUser.pubkey, authedAt: Date.now() },
-      };
-    }
-    catch {
-      // Ignore; goal is to trigger AUTH flow, not to fetch data
-    }
-
-    onStepComplete?.(i, url);
-  }
-}
-
 /**
  * Manually publish an event to all special relays and capture specific errors.
  * This is needed because NPool swallows specific OK message errors.
@@ -350,17 +219,15 @@ export async function publishToSpecialRelays(event: NostrEvent): Promise<void> {
 
   const publishPromises = targets.map(async (url) => {
     try {
-      // Ensure relay is connected/open
-      // Ensure relay is connected/open
       let relay: NRelay;
       const existing = relayMap.get(url);
       if (existing) {
         relay = existing;
-      } else {
+      }
+      else {
         relay = pool!.relay(url);
       }
 
-      // Publish with a 5s timeout
       await Promise.race([
         relay.event(event),
         new Promise<void>((_, reject) => setTimeout(() => reject(new Error("Publish timeout")), 5000)),
@@ -397,7 +264,6 @@ export async function publishToSpecialRelays(event: NostrEvent): Promise<void> {
   }
 }
 
-// Separate composable for relay management
 export function useRelayManager() {
   if (!relayStatusMap) {
     relayStatusMap = useState<Record<string, RelayStatus>>(
@@ -428,17 +294,13 @@ export function useRelayManager() {
         const stored = localStorage.getItem("hypersignal-user-relays");
         const relays: string[] = stored ? JSON.parse(stored) : [];
         if (!relays.includes(url)) {
-          // Mark as connecting
           relayStatusMap.value[url] = { url, connected: false };
           const relay = new NRelay1(url);
           const relayMap = getPoolRelayMap();
 
-          // Test the connection by sending a simple query
           try {
-            // Add relay to pool temporarily for testing
             relayMap.set(url, relay);
 
-            // Send a test query to verify connection
             await Promise.race([
               relay.query([{ kinds: [1], limit: 1 }]),
               new Promise<never>((_, reject) =>
@@ -446,16 +308,13 @@ export function useRelayManager() {
               ),
             ]);
 
-            // If we got here, connection works
             relayStatusMap.value[url] = { url, connected: true };
 
-            // Save to localStorage and user relays
             relays.push(url);
             localStorage.setItem("hypersignal-user-relays", JSON.stringify(relays));
             userRelays.value.push(url);
           }
           catch (connectionError) {
-            // Clean up failed relay
             const { [url]: _, ...rest } = relayStatusMap.value;
             relayStatusMap.value = rest;
             relay.close();
@@ -477,10 +336,8 @@ export function useRelayManager() {
   function removeRelay(url: string) {
     if (import.meta.client && pool) {
       try {
-        // Check if it's a user relay
         const userRelayIndex = userRelays.value.indexOf(url);
         if (userRelayIndex > -1) {
-          // Remove from user relays
           const stored = localStorage.getItem("hypersignal-user-relays");
           const relays: string[] = stored ? JSON.parse(stored) : [];
           const filtered = relays.filter(r => r !== url);
@@ -488,19 +345,16 @@ export function useRelayManager() {
           userRelays.value.splice(userRelayIndex, 1);
         }
 
-        // Check if it's a public relay
         const publicRelayIndex = publicRelays.indexOf(url);
         if (publicRelayIndex > -1) {
           publicRelays.splice(publicRelayIndex, 1);
         }
 
-        // Check if it's a special relay
         const specialRelayIndex = specialRelays.indexOf(url);
         if (specialRelayIndex > -1) {
           specialRelays.splice(specialRelayIndex, 1);
         }
 
-        // Disconnect from the relay
         const relayMap = getPoolRelayMap();
         const relay = relayMap.get(url);
         if (relay) {
@@ -508,7 +362,6 @@ export function useRelayManager() {
           relayMap.delete(url);
         }
 
-        // Remove from status map
         const { [url]: _, ...rest } = relayStatusMap.value;
         relayStatusMap.value = { ...rest };
       }

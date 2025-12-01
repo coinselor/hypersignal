@@ -1,4 +1,4 @@
-import type { ProcessedEvent } from "../../types";
+import type { ProcessedEvent } from "../../shared/types/events";
 
 export type SignalPlan = {
   action: string | null;
@@ -11,10 +11,6 @@ export type SignalPlan = {
   hasActivePlan: boolean;
 };
 
-/**
- * Composable for deriving the active signal plan from feed signals
- * Tracks latest signal per authorized pubkey and determines the active plan
- */
 export function useSignalPlan() {
   const { getAuthorizedPubkeys } = useAuthorization();
   const { signals } = useFeed();
@@ -23,17 +19,11 @@ export function useSignalPlan() {
   const authorizedPubkeys = getAuthorizedPubkeys();
   const timeoutSeconds = config.public.signalInactivityTimeoutSeconds;
 
-  /**
-   * Get the latest signal per authorized pubkey
-   * Returns a map of pubkey -> latest signal
-   */
   const latestSignalPerPubkey = computed(() => {
     const latestMap = new Map<string, ProcessedEvent>();
 
-    // Process signals in order (already newest first from useFeed)
     for (const signal of signals.value) {
       if (authorizedPubkeys.includes(signal.pubkey)) {
-        // Only store if we haven't seen this pubkey yet (newest wins)
         if (!latestMap.has(signal.pubkey)) {
           latestMap.set(signal.pubkey, signal);
         }
@@ -43,11 +33,6 @@ export function useSignalPlan() {
     return latestMap;
   });
 
-  /**
-   * Derive the active plan from all latest signals
-   * The newest timestamp across all latest signals determines the active action
-   * Plans expire after the configured inactivity timeout
-   */
   const activePlan = computed((): SignalPlan => {
     const latestSignals = latestSignalPerPubkey.value;
 
@@ -61,7 +46,6 @@ export function useSignalPlan() {
       };
     }
 
-    // Find the most recent signal across all developers
     let newestSignal: ProcessedEvent | null = null;
     let newestTimestamp = 0;
 
@@ -83,11 +67,8 @@ export function useSignalPlan() {
       };
     }
 
-    // The active action is the action from the newest signal
     const activeAction = newestSignal.action;
 
-    // Find all developers whose latest signal matches the active action
-    // and track the most recent matching signal timestamp
     const signedPubkeys: string[] = [];
     let mostRecentMatchingTimestamp = 0;
 
@@ -101,12 +82,10 @@ export function useSignalPlan() {
       }
     }
 
-    // Check if the plan has expired based on inactivity timeout
     const currentTime = Math.floor(Date.now() / 1000);
     const timeSinceLastMatchingSignal = currentTime - mostRecentMatchingTimestamp;
 
     if (timeSinceLastMatchingSignal > timeoutSeconds) {
-      // Plan has expired - return to ready state
       return {
         action: null,
         signedPubkeys: [],
@@ -123,7 +102,6 @@ export function useSignalPlan() {
       pk => !signedPubkeys.includes(pk),
     );
 
-    // Find the earliest developer who signed the active action
     let triggeredBy: { pubkey: string; timestamp: number } | null = null;
     let earliestTimestamp = Number.POSITIVE_INFINITY;
 

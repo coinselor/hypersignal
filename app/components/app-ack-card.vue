@@ -9,7 +9,7 @@ defineProps<{
 <template>
   <UCard>
     <div class="flex gap-4">
-      <div class="flex-shrink-0">
+      <div class="shrink-0">
         <UAvatar :src="ack.author.picture" :alt="ack.author.name" size="lg" />
       </div>
       <div class="flex-1">
@@ -17,7 +17,10 @@ defineProps<{
           <p class="font-bold">
             {{ ack.author.name }}
           </p>
-          <UBadge :color="ack.status === 'success' ? 'success' : 'error'" variant="soft">
+          <UBadge
+            :color="ack.status === 'success' ? 'success' : 'error'"
+            variant="soft"
+          >
             {{ ack.status }}
           </UBadge>
         </div>

@@ -28,14 +28,12 @@ export function useCurrentUser() {
     }
   });
 
-  // Get profile from cache, trigger fetch if not cached
   const profile = computed(() => {
     const pubkey = user.value?.pubkey;
     if (!pubkey) {
       return null;
     }
 
-    // Trigger fetch in background if not cached
     const cached = getProfile(pubkey).value;
     if (!cached) {
       fetchProfile(pubkey);
@@ -47,6 +45,6 @@ export function useCurrentUser() {
   return {
     user,
     profile,
-    pending: computed(() => false), // Profile fetch happens in background
+    pending: computed(() => false),
   };
 }

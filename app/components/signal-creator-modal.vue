@@ -154,7 +154,6 @@ function validateForm(): boolean {
   return true;
 }
 
-// Generate event preview
 function generatePreview() {
   if (!validateForm()) {
     return;
@@ -211,7 +210,6 @@ function generatePreview() {
   }
 }
 
-
 async function signAndPublish() {
   if (!eventDraft.value || !user.value) {
     return;
@@ -222,14 +220,12 @@ async function signAndPublish() {
   authAbort = new AbortController();
 
   try {
-
     const windowNostr = (globalThis as unknown as { nostr?: NostrSigner }).nostr;
     if (user.value.method === "extension" && !windowNostr) {
       throw new Error("Please install a NIP-07 compatible Nostr extension");
     }
 
     setLoaderMessage("Waiting for signature...");
-
 
     const plainEvent = JSON.parse(JSON.stringify(eventDraft.value));
     const signedEvent = await user.value.signer.signEvent(plainEvent);
@@ -279,7 +275,6 @@ async function signAndPublish() {
   }
 }
 
-
 watch(() => props.open, (newValue) => {
   if (newValue) {
     resetForm();
@@ -295,7 +290,6 @@ watch(() => props.open, (newValue) => {
     @update:open="$emit('update:open', $event)"
   >
     <template #body>
-      <!-- Step 1: Signal Type Selection -->
       <div v-if="currentStep === 1" class="space-y-6">
         <div class="grid grid-cols-2 gap-4">
           <button
@@ -326,7 +320,6 @@ watch(() => props.open, (newValue) => {
         </div>
       </div>
 
-      <!-- Step 2: Form Fields -->
       <div v-else-if="currentStep === 2" class="space-y-4">
         <div class="flex items-center justify-center gap-2 mb-4">
           <UBadge color="primary" variant="soft">
@@ -379,7 +372,6 @@ watch(() => props.open, (newValue) => {
           </p>
         </div>
 
-        <!-- Reboot-specific fields -->
         <template v-if="signalType === 'reboot'">
           <div>
             <label class="block text-sm font-medium mb-1">Genesis URL <span class="text-lime-500">*</span></label>
@@ -431,7 +423,6 @@ watch(() => props.open, (newValue) => {
         </div>
       </div>
 
-      <!-- Step 3: Preview -->
       <div v-else-if="currentStep === 3 && eventDraft" class="space-y-4">
         <div class="flex items-center gap-2 mb-4">
           <UIcon name="i-lucide-eye" class="text-zinc-400" />
@@ -441,7 +432,6 @@ watch(() => props.open, (newValue) => {
         </div>
 
         <CodePreview label="">
-          <!-- Preview slot: formatted event details -->
           <div class="w-full space-y-3 text-sm">
             <div class="flex items-center gap-2">
               <span class="font-semibold text-zinc-500 dark:text-zinc-400">Kind:</span>
@@ -455,7 +445,7 @@ watch(() => props.open, (newValue) => {
               </div>
               <div class="space-y-1">
                 <div v-for="(tag, index) in eventDraft.tags" :key="index" class="flex items-start gap-2 font-mono text-xs">
-                  <span class="text-lime-600 dark:text-lime-400 flex-shrink-0">[{{ index }}]</span>
+                  <span class="text-lime-600 dark:text-lime-400 shrink-0">[{{ index }}]</span>
                   <UTooltip :text="JSON.stringify(tag)" class="flex-1 min-w-0">
                     <span class="text-zinc-700 dark:text-zinc-300 truncate block">{{ JSON.stringify(tag) }}</span>
                   </UTooltip>
@@ -485,7 +475,6 @@ watch(() => props.open, (newValue) => {
 
     <template #footer>
       <div class="flex items-center justify-between w-full">
-        <!-- Back button -->
         <UButton
           v-if="currentStep > 1"
           color="neutral"
@@ -496,7 +485,6 @@ watch(() => props.open, (newValue) => {
         </UButton>
         <div v-else />
 
-        <!-- Next/Action buttons -->
         <div class="flex items-center gap-2">
           <UButton
             v-if="currentStep === 2"
