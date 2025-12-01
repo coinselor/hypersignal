@@ -12,15 +12,12 @@
 
 ## Why HyperSignal?
 
-HyperSignal provides an easy way to submit and monitor signals between developers and nodes across the HyperQube Network using the Nostr protocol.
+HyperSignal facilitates signal submission and monitoring between developers and nodes across the HyperQube Network via the Nostr protocol.
 
-**Built on Nostr** - Leverages custom event kinds for decentralized, censorship-resistant communication.
-
-**Authorized Publishers** - Configure specific public keys to ensure only authorized users can broadcast signals.
-
-**Real-Time Monitoring** - Live feed updates from multiple relays for instant signal detection.
-
-**Custom Relay Management** - Users can add/remove relays for optimal event fetching and publication.
+- **Built on Nostr**: Leverages custom event kinds for decentralized, censorship-resistant communication.
+- **Authorized Publishers**: Configure specific public keys to ensure only authorized users can broadcast signals.
+- **Real-Time Monitoring**: Live feed updates from multiple relays for instant signal detection.
+- **Custom Relay Management**: Users can add/remove relays for optimal event fetching and publication.
 
 ## Quick Start
 
@@ -33,50 +30,46 @@ pnpm dev
 
 > **Prerequisites**: Node.js 18.0.0+, pnpm package manager
 
-### Local Development
+## Configuration
 
-```bash
-# Copy example file and edit (optional, for local override)
-cp .env.example .env
-```
+**Environment Variables**
 
-The `.env` file is useful for local development to simulate the production base URL.
+- **`NUXT_APP_BASE_URL`**: Sets the base URL for the application. Useful for deployments like GitHub Pages (e.g., `/hypersignal/`).
+  ```bash
+  # Copy example file and edit
+  cp .env.example .env
+  ```
 
-### Deployment to GitHub Pages
+**Application Settings**
 
-This repository is configured to automatically deploy to GitHub Pages via GitHub Actions.
-The `NUXT_APP_BASE_URL` is configured directly in `.github/workflows/deploy.yml`.
+Core application settings are located in `nuxt.config.ts` under `runtimeConfig.public`.
 
-### Configuration
-
-**Authorized Publishers Configuration**
-
-Edit `nuxt.config.ts` to configure authorized public keys, the set of relays to use for signal monitoring, and the inactivity timeout:
+- **`nostr.publicRelays`**: List of standard Nostr relays for general event fetching.
+- **`nostr.specialRelays`**: List of specialized relays (e.g., [qubestr](https://github.com/hypercore-one/qubestr)) for targeted signal monitoring.
+- **`authorizedPubkeys`**: Array of hex-encoded Nostr public keys. Only events signed by these keys are recognized as valid signals.
+- **`signalInactivityTimeoutSeconds`**: Duration in seconds before the system reverts to "Hyper Ready" state if no fresh signals are received.
 
 ```typescript
-// nuxt.config.ts
+// Example configuration in nuxt.config.ts
 export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       nostr: {
-        publicRelays: [
-          "wss://relay.damus.io",
-          "wss://relay.primal.net",
-        ],
-        specialRelays: [
-          "wss://qubestr.zenon.red",
-          "wss://qubestr.zenon.info",
-        ],
+        publicRelays: ["wss://relay.damus.io"],
+        specialRelays: ["wss://qubestr.zenon.red"],
       },
       authorizedPubkeys: [
-        "b5158...fc53", // Replace with your authorized keys
-        // Add more authorized keys as needed
+        "b5158...fc53", // Authorized Publisher
       ],
-      signalInactivityTimeoutSeconds: 60 * 60 * 24 * 7, // 1 week
+      signalInactivityTimeoutSeconds: 604800, // 1 week
     }
   }
 });
 ```
+
+## Deployment
+
+This repository is configured to automatically deploy to GitHub Pages via GitHub Actions. The `NUXT_APP_BASE_URL` is set directly in the `.github/workflows/deploy.yml` file to match your repository name.
 
 ## License
 
